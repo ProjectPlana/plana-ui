@@ -1,0 +1,121 @@
+<span id="getting-started" className="block scroll-mt-24" />
+
+## Getting Started
+
+Project Plana is configured from the dashboard after you sign in with Discord. The dashboard lists the servers available to your account and opens a server-specific configuration workspace.
+
+1. Invite the bot to your Discord server.
+2. Sign in with Discord from the Project Plana site.
+3. Open the dashboard and select the guild you want to configure.
+4. Set basic preferences before enabling individual features.
+5. Save and test each feature in a private or staff-only channel first.
+
+> If a setting does not appear to work, check the bot's Discord permissions before changing the dashboard configuration.
+
+<span id="dashboard-basics" className="block scroll-mt-24" />
+
+## Dashboard Basics
+
+Each server configuration page uses a left sidebar for feature navigation. Selecting a tab updates the URL, so you can bookmark or share a direct link to a specific configuration area.
+
+The main dashboard sections are:
+
+- General Settings for language, timezone, and shared bot preferences.
+- Welcome System for welcome, goodbye, and direct messages.
+- Level System and Achievements for member progression.
+- Reaction Roles for self-serve role assignment.
+- Custom Messages, RSS Feeds, Scheduled Messages, and Custom Commands for automation.
+- Automod for safety rules.
+- Statistic Channels, Emojis & Stickers, Server Structure, and AI Intelligence for operations.
+
+Most feature pages include counts for total, active, and draft items. Drafts are useful while building a configuration without publishing it immediately.
+
+<span id="message-builder" className="block scroll-mt-24" />
+
+## Message Builder
+
+Several features use the shared message builder. It lets you write message content, configure embeds, and preview the Discord output before publishing.
+
+Use the builder for:
+
+- Welcome, goodbye, and direct messages.
+- Level-up and achievement unlock messages.
+- Custom messages and announcement panels.
+- Scheduled posts and command responses.
+
+Embeds can include titles, descriptions, fields, authors, images, thumbnails, and footers. Keep important information in the message body or embed description so it remains readable on mobile.
+
+### Template Variables
+
+Template variables use `{name}` syntax. Unknown or unavailable variables are left unchanged, which helps expose when a template uses data that does not exist for that message type.
+
+| Context | Variables |
+| --- | --- |
+| User or member | `{user}`, `{user.mention}`, `{user.name}`, `{user.display_name}`, `{user.id}`, `{user.avatar_url}`, `{member.mention}`, `{member.name}` |
+| Server | `{server}`, `{server.name}`, `{server.id}`, `{server.member_count}`, `{server.owner}`, `{server.owner_id}` |
+| Channel | `{channel}`, `{channel.mention}`, `{channel.name}`, `{channel.id}`, `{channel.type}` |
+| Trigger message | `{message}`, `{message.content}`, `{message.id}`, `{message.jump_url}` |
+| Custom command args | `{args}`, `{arg.0}`, `{arg.1}` |
+| Custom command | `{command}`, `{command.name}` |
+| Welcome event | `{event}`, `{event.name}` |
+
+Welcome, goodbye, join-DM, and custom-command messages render variables in message content and nested embed text. Trigger-message variables are only available when a Discord message caused the response, such as custom commands or AI input templates. Welcome and join-DM templates do not have `{message.content}` because no user message triggered them.
+
+<span id="feature-configuration" className="block scroll-mt-24" />
+
+## Feature Configuration
+
+Configuration is usually organized around the same workflow: create an item, choose its channel or trigger, edit the message or action, enable it, then save.
+
+| Feature | Main configuration |
+| --- | --- |
+| Welcome System | Message type, target channel, and message content |
+| Levels | Level-up message and role rewards |
+| Achievements | Criteria type, target value, reward role, and unlock message |
+| Reaction Roles | Trigger type, message, options, and role mapping |
+| RSS Feeds | Feed URL, target channel, and post template |
+| Scheduled Messages | Target channel, schedule, timezone, and content |
+| Custom Commands | Prefix name, cooldown, and action chain |
+| Statistic Channels | Counter type, channel name template, and update behavior |
+
+When testing a feature, change one thing at a time. It is easier to diagnose issues when channel, permission, trigger, and message changes are not mixed together.
+
+<span id="permissions-and-safety" className="block scroll-mt-24" />
+
+## Permissions And Safety
+
+Project Plana can only perform actions allowed by Discord permissions. For moderation, role assignment, and message posting, the bot role must be placed correctly in the server role hierarchy.
+
+- Give the bot access to channels where it should read or post.
+- Place the bot role above roles it needs to assign or remove.
+- Limit destructive permissions to the features that actually need them.
+- Test Automod rules with staff before applying strict actions broadly.
+
+For public-facing systems, keep fallback behavior simple. If a role menu, command, or scheduled message fails, moderators should be able to understand which dashboard item controls it.
+
+<span id="troubleshooting" className="block scroll-mt-24" />
+
+## Troubleshooting
+
+| Problem | Check |
+| --- | --- |
+| Bot does not post | Channel permissions, missing send permission, or disabled feature |
+| Role is not assigned | Bot role hierarchy and manage roles permission |
+| Schedule fires at the wrong time | Guild timezone in General Settings |
+| RSS feed stays quiet | Feed URL, channel selection, and whether the feed is enabled |
+| Automod misses content | Rule enabled state, trigger settings, and Discord permissions |
+| Message looks wrong | Message builder preview, embed fields, and mobile readability |
+
+If the dashboard state looks stale, refresh the page and reopen the guild. If Discord changes were made outside Project Plana, the dashboard may need a fresh read of server data.
+
+<span id="support" className="block scroll-mt-24" />
+
+## Support
+
+For help, use the community Discord or the project issue tracker. Include the feature name, guild context, what you expected to happen, and what happened instead.
+
+Useful links:
+
+- [Open the dashboard](/dashboard)
+- [Read the feature overview](/features)
+- [Join the Discord server](https://discord.gg/9845afkhWT)

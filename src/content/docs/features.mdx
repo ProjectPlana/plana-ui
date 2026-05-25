@@ -1,0 +1,104 @@
+<span id="overview" className="block scroll-mt-24" />
+
+## Overview
+
+Project Plana is a MEE6-like Discord bot focused on server configuration, community engagement, and automation. The dashboard is organized by server, so each guild can enable only the systems it needs.
+
+The current interface covers general settings, welcome messages, leveling, achievements, reaction roles, custom messages, RSS feeds, automod, custom commands, scheduled messages, statistic channels, emojis, server structure, and AI behavior.
+
+| Area | What it helps with |
+| --- | --- |
+| Community growth | Welcome flows, levels, achievements, and self-serve roles |
+| Automation | Scheduled posts, RSS feeds, custom commands, and reusable messages |
+| Safety | Automod rules for spam, invites, profanity, and raids |
+| Operations | Server counters, structure overview, emoji management, and preferences |
+
+> Start with the features your members will see every day, then add automation and safety rules once the basics are stable.
+
+<span id="server-setup" className="block scroll-mt-24" />
+
+## Server Setup
+
+General Settings control the base behavior for Project Plana in a guild. Use them to set server-wide preferences before configuring individual systems.
+
+- Pick the language and timezone used by time-based features.
+- Configure shared branding assets such as footer images for bot messages.
+- Keep these values current before enabling scheduled messages or other features that depend on local server time.
+
+Welcome System helps shape the first and last touchpoints for members. You can configure public welcome messages, goodbye messages, and direct messages for new arrivals.
+
+- Send joins and leaves to the right channels.
+- Use the message builder for richer content and embeds.
+- Keep welcome text short enough that members can scan it quickly.
+
+<span id="community-systems" className="block scroll-mt-24" />
+
+## Community Systems
+
+Level System tracks activity through XP and member levels. It supports level-up messages and role rewards, which makes it useful for long-running communities that want lightweight progression.
+
+- Configure where level-up messages appear.
+- Add role rewards for milestones.
+- Use rewards carefully so important roles are not granted too early.
+
+Achievements extend the activity system with custom milestones. They can track message counts, words, attachments, links, mentions, reactions, voice time, threads, slash command usage, and moderation activity.
+
+- Create milestones around behavior you want to encourage.
+- Attach optional reward roles.
+- Customize the unlock message so achievements feel intentional.
+
+Reaction Roles let members assign roles to themselves through emoji reactions, buttons, or dropdown menus. They are useful for notification roles, interest groups, region roles, and event pings.
+
+<span id="content-and-automation" className="block scroll-mt-24" />
+
+## Content And Automation
+
+Custom Messages are reusable messages that can be drafted, previewed, and published to selected channels. Use them for rules, announcements, information panels, or onboarding content.
+
+RSS Feeds automatically post new articles into Discord channels. Each feed can be enabled or disabled, and the message template supports feed placeholders such as `title`, `description`, and `link`.
+
+Scheduled Messages post content once or on a recurring cron schedule. Times use the guild timezone when configured, otherwise UTC.
+
+Custom Commands define prefix commands with chained actions. A command can reply in the current channel, send a message elsewhere, add a role, or remove a role.
+
+| Feature | Best use |
+| --- | --- |
+| Custom Messages | Persistent panels, announcements, and rules |
+| RSS Feeds | News, changelogs, blog posts, and external updates |
+| Scheduled Messages | Reminders, recurring events, and routine prompts |
+| Custom Commands | Simple shortcuts and server-specific automation |
+
+<span id="moderation-and-safety" className="block scroll-mt-24" />
+
+## Moderation And Safety
+
+Automod provides configurable rules for common server safety problems. The dashboard currently calls out spam, invite links, profanity, and raid handling.
+
+- Create rules that match the server's moderation policy.
+- Keep actions clear so moderators understand what the bot will do.
+- Start with conservative rules, review false positives, then tighten behavior over time.
+
+Automod works best alongside Discord permissions. Make sure Project Plana has the roles and channel permissions it needs before relying on it for enforcement.
+
+<span id="management-tools" className="block scroll-mt-24" />
+
+## Management Tools
+
+Statistic Channels keep channel names updated with live counters. Supported counter types include members, humans, bots, online users, boosts, roles, and channels.
+
+Emojis & Stickers gives the dashboard a place to browse and manage server assets. This is useful when the server has many custom assets or when moderators need a quick overview.
+
+Server Structure shows channels, categories, members, and roles. Use it as a read-only operational view when checking the shape of a guild before editing settings.
+
+AI Intelligence configures Project Plana AI behavior. The interface supports guild-wide, per-category, and per-channel configuration levels.
+
+<span id="recommended-setup" className="block scroll-mt-24" />
+
+## Recommended Setup
+
+1. Invite Project Plana and confirm the bot role is high enough for the actions you plan to use.
+2. Open General Settings and set language, timezone, and shared message assets.
+3. Configure Welcome System and Custom Messages for the basic member experience.
+4. Add Reaction Roles, Levels, and Achievements if the server wants engagement systems.
+5. Enable Automod rules gradually and test them with moderator accounts.
+6. Add scheduled messages, RSS feeds, statistic channels, and custom commands after the core setup is working.
