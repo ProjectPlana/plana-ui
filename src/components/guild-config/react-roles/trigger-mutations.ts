@@ -9,6 +9,7 @@ import type {
   MenuComponent,
   ReactRoleAssignment,
 } from '@/lib/sdk';
+import { selectOptionValueFromTrigger, selectTriggerId } from './trigger-ids';
 import type { ExtendedReactRole, TriggerType } from './types';
 
 function uniqueToken(): string {
@@ -86,7 +87,7 @@ function addSelectAssignment(role: ExtendedReactRole): ExtendedReactRole {
       components: [menu],
       role_assignments: [
         ...role.role_assignments,
-        { role_ids: [], trigger_id: `${menuId}-${optionValue}` },
+        { role_ids: [], trigger_id: selectTriggerId(menuId, optionValue) },
       ],
     };
   }
@@ -105,7 +106,7 @@ function addSelectAssignment(role: ExtendedReactRole): ExtendedReactRole {
     components: [updatedMenu],
     role_assignments: [
       ...role.role_assignments,
-      { role_ids: [], trigger_id: `${existingMenu.custom_id}-${optionValue}` },
+      { role_ids: [], trigger_id: selectTriggerId(existingMenu.custom_id, optionValue) },
     ],
   };
 }
@@ -126,10 +127,16 @@ export function removeAssignment(
     };
   }
 
-  if (role.triggerType === 'select' && assignment.trigger_id.includes('-')) {
-    const [menuId, optionValue] = assignment.trigger_id.split('-');
+  if (role.triggerType === 'select') {
     const menu = role.components?.[0] as MenuComponent | undefined;
-    if (menu && menu.custom_id === menuId) {
+    if (menu) {
+      const optionValue = selectOptionValueFromTrigger(
+        assignment.trigger_id,
+        menu.custom_id,
+      );
+      if (optionValue === null) {
+        return { ...role, role_assignments: newAssignments };
+      }
       const remaining = menu.options.filter((opt) => opt.value !== optionValue);
       return {
         ...role,

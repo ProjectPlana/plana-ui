@@ -283,6 +283,47 @@ export function useResetGuildPreferencesMutation(guildId: string) {
   });
 }
 
+function scheduleGuildDataRefresh(queryClient: ReturnType<typeof useQueryClient>, guildId: string) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.guild.data(guildId) });
+  window.setTimeout(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.guild.data(guildId) });
+  }, 3000);
+}
+
+export function useCreateGuildEmojiMutation(guildId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, file }: { name: string; file: File }) =>
+      PlanaSDK.createGuildEmoji(guildId, name, file),
+    onSuccess: () => scheduleGuildDataRefresh(queryClient, guildId),
+  });
+}
+
+export function useDeleteGuildEmojiMutation(guildId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (emojiId: string) => PlanaSDK.deleteGuildEmoji(guildId, emojiId),
+    onSuccess: () => scheduleGuildDataRefresh(queryClient, guildId),
+  });
+}
+
+export function useCreateGuildStickerMutation(guildId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; description: string; emoji: string; file: File }) =>
+      PlanaSDK.createGuildSticker(guildId, data),
+    onSuccess: () => scheduleGuildDataRefresh(queryClient, guildId),
+  });
+}
+
+export function useDeleteGuildStickerMutation(guildId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (stickerId: string) => PlanaSDK.deleteGuildSticker(guildId, stickerId),
+    onSuccess: () => scheduleGuildDataRefresh(queryClient, guildId),
+  });
+}
+
 export function useUpdateWelcomeConfigMutation(guildId: string) {
   const queryClient = useQueryClient();
   return useMutation({

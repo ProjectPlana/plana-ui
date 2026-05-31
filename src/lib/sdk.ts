@@ -71,6 +71,12 @@ export interface GuildSticker {
   available: boolean;
 }
 
+export interface AssetQueueResponse {
+  status: 'queued';
+  request_id: string;
+  subscribers: number;
+}
+
 export interface GuildData {
   id: string;
   name: string;
@@ -134,17 +140,32 @@ function normalizeGuildData(guild: GuildData): GuildData {
       ...category,
       category_id: String(category.category_id),
     })),
+    emojis: (guild.emojis ?? []).map((emoji) => ({
+      ...emoji,
+      emoji_id: asId(emoji.emoji_id),
+    })),
+    stickers: (guild.stickers ?? []).map((sticker) => ({
+      ...sticker,
+      sticker_id: String(sticker.sticker_id),
+      description: sticker.description ?? '',
+      emoji: sticker.emoji ?? '',
+    })),
   };
 }
 
 export interface GuildPreferences {
   id: string;
   command_prefix: string;
+  prefix_commands_enabled: boolean;
   language: string;
   timezone: string;
   embed_color: string;
   embed_footer: string;
   embed_footer_images: string[];
+  bot_nickname: string | null;
+  bot_avatar_url: string | null;
+  bot_banner_url: string | null;
+  bot_bio: string | null;
 }
 
 export interface MessageEmbed {
@@ -392,6 +413,7 @@ export interface ReactRole {
   id?: string;
   guild_id: string;
   message_id: string;
+  message_template_id?: string | null;
   name: string;
   role_assignments: ReactRoleAssignment[];
   mode: ReactRoleMode;
@@ -1132,6 +1154,63 @@ export class PlanaSDK {
 
     const data = await response.json();
     return data.data.url;
+  }
+
+  private static async fetchGuildAssetForm(
+    guildId: string,
+    path: string,
+    formData: FormData,
+  ): Promise<AssetQueueResponse> {
+    const headers = new Headers();
+    const csrf = getStoredCsrfToken();
+    if (csrf) headers.set(CSRF_HEADER, csrf);
+
+    const response = await fetch(`${getApiBaseUrl()}/api/guilds/${guildId}${path}`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Authentication failed');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.message || `Request failed: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  static async createGuildEmoji(guildId: string, name: string, file: File): Promise<AssetQueueResponse> {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file', file);
+    return this.fetchGuildAssetForm(guildId, '/emojis', formData);
+  }
+
+  static async deleteGuildEmoji(guildId: string, emojiId: string): Promise<AssetQueueResponse> {
+    const response = await this.fetchWithAuth(`/guilds/${guildId}/emojis/${emojiId}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  }
+
+  static async createGuildSticker(
+    guildId: string,
+    data: { name: string; description: string; emoji: string; file: File },
+  ): Promise<AssetQueueResponse> {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    formData.append('description', data.description);
+    formData.append('emoji', data.emoji);
+    formData.append('file', data.file);
+    return this.fetchGuildAssetForm(guildId, '/stickers', formData);
+  }
+
+  static async deleteGuildSticker(guildId: string, stickerId: string): Promise<AssetQueueResponse> {
+    const response = await this.fetchWithAuth(`/guilds/${guildId}/stickers/${stickerId}`, {
+      method: 'DELETE',
+    });
+    return response.json();
   }
 
   // Manager Roles API

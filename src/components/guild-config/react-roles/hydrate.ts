@@ -2,16 +2,22 @@
  * Maps an API ``ReactRole`` (plus its associated ``Message`` row) into the
  * editor-friendly :class:`ExtendedReactRole`.
  *
- * Trigger type is inferred from the first assignment's ``trigger_id``:
- *   - contains ``-`` → ``select`` (formatted as ``<menuId>-<optionValue>``)
- *   - starts with ``btn_`` → ``button``
- *   - otherwise → ``emoji``
+ * Trigger type is inferred from the associated message components first.
+ * Legacy rows without message component data fall back to the assignment key.
  */
 
 import type { GuildData, GuildEmoji, GuildMessage, ReactRole } from '@/lib/sdk';
+import { isMenuComponent } from './trigger-ids';
 import type { ExtendedReactRole, TriggerType } from './types';
 
-export function inferTriggerType(role: ReactRole): TriggerType {
+export function inferTriggerType(
+  role: ReactRole,
+  associatedMessage?: GuildMessage,
+): TriggerType {
+  const firstComponent = associatedMessage?.components?.[0];
+  if (isMenuComponent(firstComponent)) return 'select';
+  if (firstComponent) return 'button';
+
   const first = role.role_assignments[0];
   if (!first) return 'emoji';
   if (first.trigger_id.includes('-')) return 'select';
@@ -44,7 +50,7 @@ export function hydrateReactRole(
   associatedMessage: GuildMessage | undefined,
   guildData: GuildData | null,
 ): ExtendedReactRole {
-  const triggerType = inferTriggerType(role);
+  const triggerType = inferTriggerType(role, associatedMessage);
   return {
     ...role,
     mode: role.mode ?? 'toggle',

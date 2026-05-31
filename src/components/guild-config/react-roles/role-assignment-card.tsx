@@ -16,6 +16,7 @@ import type { ExtendedReactRole, TriggerType } from './types';
 import { TriggerButtonEditor } from './trigger-button-editor';
 import { TriggerEmojiEditor } from './trigger-emoji-editor';
 import { TriggerSelectEditor } from './trigger-select-editor';
+import { selectOptionValueFromTrigger } from './trigger-ids';
 
 interface RoleAssignmentCardProps {
   assignment: ReactRoleAssignment;
@@ -58,7 +59,11 @@ function RoleAssignmentCardImpl({
     (property: keyof SelectOption, value: SelectOption[keyof SelectOption]) => {
       const menu = reactRole.components?.[0] as MenuComponent | undefined;
       if (!menu) return;
-      const [, optionValue] = assignment.trigger_id.split('-');
+      const optionValue = selectOptionValueFromTrigger(
+        assignment.trigger_id,
+        menu.custom_id,
+      );
+      if (optionValue === null) return;
       const optIndex = menu.options.findIndex((o) => o.value === optionValue);
       if (optIndex === -1) return;
       const options = [...menu.options];
@@ -146,7 +151,11 @@ function RoleAssignmentCardImpl({
               option={(() => {
                 const menu = reactRole.components?.[0] as MenuComponent | undefined;
                 if (!menu) return undefined;
-                const [, optionValue] = assignment.trigger_id.split('-');
+                const optionValue = selectOptionValueFromTrigger(
+                  assignment.trigger_id,
+                  menu.custom_id,
+                );
+                if (optionValue === null) return undefined;
                 return menu.options.find((o) => o.value === optionValue);
               })()}
               assignment={assignment}

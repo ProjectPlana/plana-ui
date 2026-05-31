@@ -3,24 +3,201 @@
 /* eslint-disable jsx-a11y/alt-text */
 /* eslint-disable react/no-unescaped-entities */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GuildEmoji } from '@/lib/sdk';
-import { useGuildDataQuery } from '@/lib/queries';
-import { Smile, Image, Search, Copy, ExternalLink, Upload } from 'lucide-react';
+import { type AssetQueueResponse, type GuildEmoji, type GuildSticker } from '@/lib/sdk';
+import { EmojiSelect } from '@/components/plana-ui/emoji-select';
+import {
+  useCreateGuildEmojiMutation,
+  useCreateGuildStickerMutation,
+  useDeleteGuildEmojiMutation,
+  useDeleteGuildStickerMutation,
+  useGuildDataQuery,
+} from '@/lib/queries';
+import { Smile, Image, Search, Copy, ExternalLink, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GuildEmojisTabProps {
   guildId: string;
 }
 
+function showQueuedToast(action: string, result: AssetQueueResponse) {
+  const message = `${action} queued (${result.request_id})`;
+  if (result.subscribers === 0) {
+    toast.warning(`${message}, but no bot subscriber was reported by Redis`);
+    return;
+  }
+  toast.success(message);
+}
+
+function AssetUploadDialog({
+  type,
+  guildEmojis,
+  disabled,
+  onSubmit,
+}: {
+  type: 'emoji' | 'sticker';
+  guildEmojis?: GuildEmoji[];
+  disabled?: boolean;
+  onSubmit: (data: {
+    name: string;
+    description: string;
+    emoji: string;
+    file: File;
+  }) => Promise<AssetQueueResponse>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [emoji, setEmoji] = useState<GuildEmoji | null>({ name: '🙂', animated: false });
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const isSticker = type === 'sticker';
+
+  const reset = () => {
+    setName('');
+    setDescription('');
+    setEmoji({ name: '🙂', animated: false });
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!file) {
+      toast.error('Image file is required');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error('File must be an image');
+      return;
+    }
+    if (file.size > 512 * 1024) {
+      toast.error('File must be 512KB or smaller');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await onSubmit({
+        name: name.trim(),
+        description: description.trim(),
+        emoji: emoji?.emoji_id || emoji?.name || '🙂',
+        file,
+      });
+      showQueuedToast(`${isSticker ? 'Sticker' : 'Emoji'} upload`, result);
+      reset();
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button disabled={disabled}>
+          <Upload className="h-4 w-4 mr-2" />
+          Upload {isSticker ? 'Sticker' : 'Emoji'}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload {isSticker ? 'Sticker' : 'Emoji'}</DialogTitle>
+          <DialogDescription>
+            The bot will add it in Discord and the list will refresh shortly.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`${type}-name`}>Name</Label>
+            <Input
+              id={`${type}-name`}
+              value={name}
+              onChange={event => setName(event.target.value)}
+              maxLength={32}
+              placeholder={isSticker ? 'welcome' : 'party_plana'}
+            />
+          </div>
+          {isSticker && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="sticker-description">Description</Label>
+                <Input
+                  id="sticker-description"
+                  value={description}
+                  onChange={event => setDescription(event.target.value)}
+                  maxLength={100}
+                  placeholder="A short sticker description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sticker-emoji">Related Emoji</Label>
+                <EmojiSelect
+                  value={emoji}
+                  onValueChange={setEmoji}
+                  guildEmojis={guildEmojis ?? []}
+                  customEmojisEnabled
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Unicode emojis work best; custom emojis are sent as their Discord ID.
+                </p>
+              </div>
+            </>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor={`${type}-file`}>Image File</Label>
+            <Input
+              ref={fileInputRef}
+              id={`${type}-file`}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              onChange={event => setFile(event.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum file size is 512KB.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Uploading...' : 'Upload'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
   const guildDataQuery = useGuildDataQuery(guildId);
+  const createEmoji = useCreateGuildEmojiMutation(guildId);
+  const deleteEmoji = useDeleteGuildEmojiMutation(guildId);
+  const createSticker = useCreateGuildStickerMutation(guildId);
+  const deleteSticker = useDeleteGuildStickerMutation(guildId);
   const guildData = guildDataQuery.data ?? null;
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -34,6 +211,27 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
     if (!emoji.url) return;
     navigator.clipboard.writeText(emoji.url);
     toast.success('Emoji URL copied to clipboard');
+  };
+
+  const deleteEmojiById = async (emoji: GuildEmoji) => {
+    if (!emoji.emoji_id) return;
+    if (!confirm(`Delete emoji :${emoji.name}:?`)) return;
+    try {
+      const result = await deleteEmoji.mutateAsync(emoji.emoji_id);
+      showQueuedToast('Emoji delete', result);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete emoji');
+    }
+  };
+
+  const deleteStickerById = async (sticker: GuildSticker) => {
+    if (!confirm(`Delete sticker ${sticker.name}?`)) return;
+    try {
+      const result = await deleteSticker.mutateAsync(sticker.sticker_id);
+      showQueuedToast('Sticker delete', result);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete sticker');
+    }
   };
 
   const filteredEmojis = guildData?.emojis.filter(emoji =>
@@ -115,6 +313,12 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                 <div className="text-sm text-muted-foreground">
                   {guildData.emojis.length} total emojis
                 </div>
+                <AssetUploadDialog
+                  type="emoji"
+                  guildEmojis={guildData.emojis}
+                  disabled={createEmoji.isPending}
+                  onSubmit={({ name, file }) => createEmoji.mutateAsync({ name, file })}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -160,6 +364,14 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                           <ExternalLink className="h-3 w-3 mr-1" />
                           Copy URL
                         </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteEmojiById(emoji)}
+                          disabled={deleteEmoji.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -181,10 +393,12 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                       <p className="text-sm text-muted-foreground mb-4">
                         This server doesn&apos;t have any custom emojis yet
                       </p>
-                      <Button variant="outline" disabled>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Emoji (Coming Soon)
-                      </Button>
+                      <AssetUploadDialog
+                        type="emoji"
+                        guildEmojis={guildData.emojis}
+                        disabled={createEmoji.isPending}
+                        onSubmit={({ name, file }) => createEmoji.mutateAsync({ name, file })}
+                      />
                     </>
                   )}
                 </div>
@@ -209,6 +423,12 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                 <div className="text-sm text-muted-foreground">
                   {guildData.stickers.length} total stickers
                 </div>
+                <AssetUploadDialog
+                  type="sticker"
+                  guildEmojis={guildData.emojis}
+                  disabled={createSticker.isPending}
+                  onSubmit={data => createSticker.mutateAsync(data)}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -245,17 +465,27 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                             {sticker.available ? "Available" : "Unavailable"}
                           </Badge>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(sticker.url);
-                            toast.success('Sticker URL copied to clipboard');
-                          }}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy URL
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(sticker.url);
+                              toast.success('Sticker URL copied to clipboard');
+                            }}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy URL
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteStickerById(sticker)}
+                            disabled={deleteSticker.isPending}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -277,10 +507,12 @@ export function GuildEmojisTab({ guildId }: GuildEmojisTabProps) {
                       <p className="text-sm text-muted-foreground mb-4">
                         This server doesn&apos;t have any custom stickers yet
                       </p>
-                      <Button variant="outline" disabled>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Sticker (Coming Soon)
-                      </Button>
+                      <AssetUploadDialog
+                        type="sticker"
+                        guildEmojis={guildData.emojis}
+                        disabled={createSticker.isPending}
+                        onSubmit={data => createSticker.mutateAsync(data)}
+                      />
                     </>
                   )}
                 </div>

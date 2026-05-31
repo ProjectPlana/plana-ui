@@ -28,6 +28,25 @@ export function rowKey(role: ExtendedReactRole, index: number): string {
   return role.id || `temp-${index}`;
 }
 
+function reactRoleMessage(
+  guildId: string,
+  role: ExtendedReactRole,
+  published: boolean,
+): GuildMessage {
+  return {
+    id: role.guild_message_id || undefined,
+    guild_id: guildId,
+    channel_id: role.channel_id || '',
+    message_id: role.message_id || undefined,
+    name: `${role.name || 'Untitled Reaction Role'} - Reaction Role Message`,
+    content: role.content || '',
+    embeds: role.embeds || [],
+    components: role.triggerType !== 'emoji' ? role.components || [] : [],
+    reactions: role.triggerType === 'emoji' ? role.reactions || [] : [],
+    published,
+  };
+}
+
 export function useReactRoles(guildId: string, guildData: GuildData | null) {
   const reactRolesQuery = useReactRolesQuery(guildId);
   const messagesQuery = useGuildMessagesQuery(guildId, 100, 0);
@@ -63,8 +82,18 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         .filter((m): m is GuildMessage & { message_id: string } => Boolean(m.message_id))
         .map((m) => [m.message_id, m]),
     );
+    const messageByTemplateId = new Map<string, GuildMessage>(
+      messagesQuery.data.data
+        .filter((m): m is GuildMessage & { id: string } => Boolean(m.id))
+        .map((m) => [m.id, m]),
+    );
     const rows = reactRolesQuery.data.data.map((role: ReactRole) =>
-      hydrateReactRole(role, messageById.get(role.message_id), guildData),
+      hydrateReactRole(
+        role,
+        (role.message_template_id && messageByTemplateId.get(role.message_template_id)) ||
+          messageById.get(role.message_id),
+        guildData,
+      ),
     );
     setReactRoles(rows);
   }, [guildData, messagesQuery.data, reactRolesQuery.data]);
@@ -109,6 +138,10 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         toast.error('Please complete all required fields');
         return;
       }
+      if (!role.enabled && !role.message_id) {
+        toast.error('Enable the reaction role before its first save');
+        return;
+      }
       if (
         role.role_assignments.some(
           (assignment) =>
@@ -132,23 +165,14 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
       }
       const key = rowKey(role, index);
       setSaving(key, true);
+      let savedMessage: GuildMessage | null = null;
       try {
-        const messageData: GuildMessage = {
-          id: role.guild_message_id || undefined,
-          guild_id: guildId,
-          channel_id: role.channel_id,
-          message_id: role.message_id || undefined,
-          name: `${role.name} - Reaction Role Message`,
-          content: role.content || '',
-          embeds: role.embeds || [],
-          components:
-            role.triggerType !== 'emoji' ? role.components || [] : [],
-          reactions:
-            role.triggerType === 'emoji' ? role.reactions || [] : [],
-          published: role.enabled,
-        };
-
-        const savedMessage = await saveGuildMessage.mutateAsync(messageData);
+        savedMessage = await saveGuildMessage.mutateAsync(
+          reactRoleMessage(guildId, role, role.enabled),
+        );
+        if (!savedMessage.message_id) {
+          throw new Error('Reaction role message was not published');
+        }
 
         const roleAssignments = role.role_assignments.map((a, idx) => ({
           role_ids: a.role_ids,
@@ -161,7 +185,8 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         const roleData: ReactRole = {
           id: role.id,
           guild_id: guildId,
-          message_id: savedMessage.message_id || '',
+          message_id: savedMessage.message_id,
+          message_template_id: savedMessage.id,
           name: role.name || 'Untitled Reaction Role',
           role_assignments: roleAssignments,
           mode: role.mode ?? 'toggle',
@@ -182,13 +207,16 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         });
         toast.success('Reaction role saved');
       } catch (error) {
+        if (!role.id && !role.guild_message_id && savedMessage?.id) {
+          await deleteGuildMessage.mutateAsync(savedMessage.id).catch(console.warn);
+        }
         console.error('Failed to save reaction role:', error);
         toast.error('Failed to save reaction role');
       } finally {
         setSaving(key, false);
       }
     },
-    [guildId, saveGuildMessage, saveReactRole, setSaving, updateAt],
+    [deleteGuildMessage, guildId, saveGuildMessage, saveReactRole, setSaving, updateAt],
   );
 
   const remove = useCallback(
@@ -202,7 +230,12 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         if (role.id) {
           await deleteReactRole.mutateAsync(role.id);
           if (role.guild_message_id) {
-            await deleteGuildMessage.mutateAsync(role.guild_message_id).catch(console.warn);
+            try {
+              await deleteGuildMessage.mutateAsync(role.guild_message_id);
+            } catch (messageError) {
+              console.warn(messageError);
+              toast.warning('Reaction role deleted, but its Discord message was not removed');
+            }
           }
         }
         removeAt(index);
@@ -224,26 +257,64 @@ export function useReactRoles(guildId: string, guildData: GuildData | null) {
         return;
       }
       setSaving(role.id, true);
+      let roleUpdated = false;
+      let publishedMessage: GuildMessage | null = null;
       try {
+        publishedMessage = next
+          ? await saveGuildMessage.mutateAsync(reactRoleMessage(guildId, role, true))
+          : null;
+        const nextMessageId = next ? publishedMessage?.message_id : role.message_id;
+        const messageTemplateId =
+          publishedMessage?.id || role.guild_message_id || role.message_template_id;
+        if (!nextMessageId) {
+          throw new Error('Reaction role message was not published');
+        }
+
         const updated = await saveReactRole.mutateAsync({
           id: role.id,
           guild_id: guildId,
-          message_id: role.message_id,
+          message_id: nextMessageId,
+          message_template_id: messageTemplateId,
           name: role.name || 'Untitled Reaction Role',
           role_assignments: role.role_assignments,
           mode: role.mode ?? 'toggle',
           enabled: next,
         });
-        updateAt(index, { ...role, enabled: updated.enabled });
+        roleUpdated = true;
+        if (!next && role.guild_message_id) {
+          await saveGuildMessage.mutateAsync(reactRoleMessage(guildId, role, false));
+        }
+        updateAt(index, {
+          ...role,
+          enabled: updated.enabled,
+          message_id: updated.message_id,
+          message_template_id: updated.message_template_id,
+        });
         toast.success(`Reaction role ${next ? 'enabled' : 'disabled'}`);
       } catch (error) {
+        if (roleUpdated) {
+          await saveReactRole.mutateAsync({
+            id: role.id,
+            guild_id: guildId,
+            message_id: role.message_id,
+            message_template_id: role.guild_message_id || role.message_template_id,
+            name: role.name || 'Untitled Reaction Role',
+            role_assignments: role.role_assignments,
+            mode: role.mode ?? 'toggle',
+            enabled: role.enabled,
+          }).catch(console.warn);
+        } else if (next && publishedMessage?.id) {
+          await saveGuildMessage
+            .mutateAsync(reactRoleMessage(guildId, role, false))
+            .catch(console.warn);
+        }
         console.error('Failed to toggle reaction role:', error);
         toast.error('Failed to update reaction role status');
       } finally {
         setSaving(role.id!, false);
       }
     },
-    [guildId, saveReactRole, setSaving, updateAt],
+    [guildId, saveGuildMessage, saveReactRole, setSaving, updateAt],
   );
 
   return {

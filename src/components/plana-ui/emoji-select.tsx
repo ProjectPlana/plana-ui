@@ -25,6 +25,7 @@ interface EmojiSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  customEmojisEnabled?: boolean;
 }
 
 export function EmojiSelect({ 
@@ -33,7 +34,8 @@ export function EmojiSelect({
   guildEmojis, 
   placeholder = "Select emoji",
   disabled = false,
-  className = ""
+  className = "",
+  customEmojisEnabled = true,
 }: EmojiSelectProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
@@ -101,9 +103,11 @@ export function EmojiSelect({
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0">
         <Tabs defaultValue="unicode">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${customEmojisEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="unicode">Unicode</TabsTrigger>
-            <TabsTrigger value="custom">Server ({guildEmojis.length})</TabsTrigger>
+            {customEmojisEnabled && (
+              <TabsTrigger value="custom">Server ({guildEmojis.length})</TabsTrigger>
+            )}
           </TabsList>
           
           <div className="p-3 space-y-2">
@@ -150,32 +154,34 @@ export function EmojiSelect({
             )}
           </TabsContent>
 
-          <TabsContent value="custom" className="max-h-60 overflow-y-auto p-3 pt-0">
-            <div className="grid grid-cols-6 gap-1">
-              {filteredGuildEmojis.map((emoji) => (
-                <Button
-                  key={emoji.emoji_id}
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 w-10 p-0 flex flex-col"
-                  onClick={() => handleEmojiSelect(emoji.name, true, emoji)}
-                  title={`:${emoji.name}:`}
-                >
-                  <img 
-                    src={emoji.url} 
-                    alt={emoji.name} 
-                    className="w-6 h-6"
-                    loading="lazy"
-                  />
-                </Button>
-              ))}
-            </div>
-            {filteredGuildEmojis.length === 0 && (
-              <p className="text-center text-sm text-muted-foreground py-4">
-                {guildEmojis.length === 0 ? 'No custom emojis available' : 'No emojis found'}
-              </p>
-            )}
-          </TabsContent>
+          {customEmojisEnabled && (
+            <TabsContent value="custom" className="max-h-60 overflow-y-auto p-3 pt-0">
+              <div className="grid grid-cols-6 gap-1">
+                {filteredGuildEmojis.map((emoji) => (
+                  <Button
+                    key={emoji.emoji_id}
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 flex flex-col"
+                    onClick={() => handleEmojiSelect(emoji.name, true, emoji)}
+                    title={`:${emoji.name}:`}
+                  >
+                    <img 
+                      src={emoji.url} 
+                      alt={emoji.name} 
+                      className="w-6 h-6"
+                      loading="lazy"
+                    />
+                  </Button>
+                ))}
+              </div>
+              {filteredGuildEmojis.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground py-4">
+                  {guildEmojis.length === 0 ? 'No custom emojis available' : 'No emojis found'}
+                </p>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </PopoverContent>
     </Popover>

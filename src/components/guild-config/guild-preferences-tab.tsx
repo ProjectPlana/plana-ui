@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useGuildPreferencesQuery,
@@ -22,7 +23,7 @@ import {
 import { type GuildPreferences, type GuildRole, type DiscordMessage } from '@/lib/sdk';
 import {
   Save, RotateCcw, Settings, Palette, Globe,
-  Plus, X, Image, Eye, Copy, ShieldCheck, Trash2, Info,
+  Plus, X, Image, Eye, Copy, ShieldCheck, Trash2, Info, UserRound, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,11 +34,16 @@ import { Preview } from './message-builder/preview';
 
 interface FormData {
   command_prefix: string;
+  prefix_commands_enabled: boolean;
   language: string;
   timezone: string;
   embed_color: string;
   embed_footer: string;
   embed_footer_images: string[];
+  bot_nickname: string;
+  bot_avatar_url: string;
+  bot_banner_url: string;
+  bot_bio: string;
 }
 
 const languages = [
@@ -74,23 +80,39 @@ interface GuildPreferencesTabProps {
 
 const defaultFormData: FormData = {
   command_prefix: '!',
+  prefix_commands_enabled: true,
   language: 'en-US',
   timezone: 'UTC',
   embed_color: '#7289DA',
   embed_footer: 'Project Plana, Powered by S.C.H.A.L.E.',
   embed_footer_images: [],
+  bot_nickname: '',
+  bot_avatar_url: '',
+  bot_banner_url: '',
+  bot_bio: '',
 };
 
 function preferencesToFormData(preferences: GuildPreferences | null): FormData {
   if (!preferences) return defaultFormData;
   return {
     command_prefix: preferences.command_prefix || defaultFormData.command_prefix,
+    prefix_commands_enabled:
+      preferences.prefix_commands_enabled ?? defaultFormData.prefix_commands_enabled,
     language: preferences.language || defaultFormData.language,
     timezone: preferences.timezone || defaultFormData.timezone,
     embed_color: preferences.embed_color || defaultFormData.embed_color,
     embed_footer: preferences.embed_footer || defaultFormData.embed_footer,
     embed_footer_images: preferences.embed_footer_images || [],
+    bot_nickname: preferences.bot_nickname || '',
+    bot_avatar_url: preferences.bot_avatar_url || '',
+    bot_banner_url: preferences.bot_banner_url || '',
+    bot_bio: preferences.bot_bio || '',
   };
+}
+
+function nullableText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function roleColor(color: number): string {
@@ -149,7 +171,7 @@ export function GuildPreferencesTab({ guildId }: GuildPreferencesTabProps) {
   const [draftFormData, setDraftFormData] = useState<FormData | null>(null);
   const formData = draftFormData ?? preferencesToFormData(preferences);
 
-  const handleInputChange = (field: keyof FormData, value: string | string[]) => {
+  const handleInputChange = (field: keyof FormData, value: string | string[] | boolean) => {
     setDraftFormData(prev => ({ ...(prev ?? formData), [field]: value }));
   };
 
@@ -170,14 +192,21 @@ export function GuildPreferencesTab({ guildId }: GuildPreferencesTabProps) {
   const handleSave = async () => {
     if (!preferences) return;
     try {
-      const updated = await updatePreferences.mutateAsync({
+      const payload: Partial<GuildPreferences> = {
         command_prefix: formData.command_prefix,
+        prefix_commands_enabled: formData.prefix_commands_enabled,
         language: formData.language,
         timezone: formData.timezone,
         embed_color: formData.embed_color,
         embed_footer: formData.embed_footer,
         embed_footer_images: formData.embed_footer_images,
-      });
+        bot_nickname: nullableText(formData.bot_nickname),
+        bot_avatar_url: nullableText(formData.bot_avatar_url),
+        bot_banner_url: nullableText(formData.bot_banner_url),
+        bot_bio: nullableText(formData.bot_bio),
+      };
+
+      const updated = await updatePreferences.mutateAsync(payload);
       setDraftFormData(preferencesToFormData(updated));
       toast.success('Settings saved successfully!');
     } catch {
@@ -243,7 +272,7 @@ export function GuildPreferencesTab({ guildId }: GuildPreferencesTabProps) {
             </CardTitle>
             <CardDescription>Basic bot behavior settings</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="command_prefix">Command Prefix</Label>
               <Input
@@ -252,10 +281,26 @@ export function GuildPreferencesTab({ guildId }: GuildPreferencesTabProps) {
                 onChange={e => handleInputChange('command_prefix', e.target.value)}
                 placeholder="!"
                 maxLength={5}
+                disabled={!formData.prefix_commands_enabled}
               />
               <p className="text-xs text-muted-foreground">
                 Prefix used before bot commands (e.g., !help)
               </p>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded border p-3">
+              <div className="space-y-1">
+                <Label htmlFor="prefix_commands_enabled">Prefix Commands</Label>
+                <p className="text-xs text-muted-foreground">
+                  Disable text commands when you only want slash commands.
+                </p>
+              </div>
+              <Switch
+                id="prefix_commands_enabled"
+                checked={formData.prefix_commands_enabled}
+                onCheckedChange={checked =>
+                  handleInputChange('prefix_commands_enabled', checked)
+                }
+              />
             </div>
           </CardContent>
         </Card>
@@ -411,6 +456,144 @@ export function GuildPreferencesTab({ guildId }: GuildPreferencesTabProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserRound className="h-4 w-4" />
+            Bot Identity
+          </CardTitle>
+          <CardDescription>
+            Customize Plana&apos;s server-specific nickname, avatar, banner, and bio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="bot_nickname">Server Nickname</Label>
+              <Input
+                id="bot_nickname"
+                value={formData.bot_nickname}
+                onChange={e => handleInputChange('bot_nickname', e.target.value)}
+                placeholder="Project Plana"
+                maxLength={32}
+              />
+            </div>
+
+            <div className="space-y-2 md:row-span-2">
+              <Label htmlFor="bot_bio">Server Bio</Label>
+              <Textarea
+                id="bot_bio"
+                value={formData.bot_bio}
+                onChange={e => handleInputChange('bot_bio', e.target.value)}
+                placeholder="A short server-specific profile bio"
+                maxLength={190}
+                className="min-h-24 resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {formData.bot_bio.length}/190
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Avatar</Label>
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 overflow-hidden rounded-full border bg-muted">
+                    {formData.bot_avatar_url ? (
+                      <img
+                        src={formData.bot_avatar_url}
+                        alt="Bot avatar preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <UserRound className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <ImageUploadModal
+                    value={formData.bot_avatar_url}
+                    onValueChange={url => handleInputChange('bot_avatar_url', url ?? '')}
+                    guildId={guildId}
+                    title="Set Bot Avatar"
+                    trigger={
+                      <Button variant="outline" size="sm">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Banner</Label>
+                <div className="space-y-2">
+                  <div className="aspect-[3/1] overflow-hidden rounded border bg-muted">
+                    {formData.bot_banner_url ? (
+                      <img
+                        src={formData.bot_banner_url}
+                        alt="Bot banner preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Image className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <ImageUploadModal
+                    value={formData.bot_banner_url}
+                    onValueChange={url => handleInputChange('bot_banner_url', url ?? '')}
+                    guildId={guildId}
+                    title="Set Bot Banner"
+                    trigger={
+                      <Button variant="outline" size="sm">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-fit overflow-hidden rounded border bg-muted/30">
+            <div className="aspect-[3/1] bg-muted">
+              {formData.bot_banner_url ? (
+                <img
+                  src={formData.bot_banner_url}
+                  alt="Bot profile banner preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
+            </div>
+            <div className="px-4 pb-4">
+              <div className="-mt-8 h-16 w-16 overflow-hidden rounded-full border-4 border-background bg-muted">
+                {formData.bot_avatar_url ? (
+                  <img
+                    src={formData.bot_avatar_url}
+                    alt="Bot profile avatar preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <UserRound className="h-7 w-7 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 truncate font-semibold">
+                {formData.bot_nickname || 'Project Plana'}
+              </p>
+              <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                {formData.bot_bio || 'No server-specific bio set.'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Bottom row: Embed settings (left) · Preview (right) ── */}
       <div className="grid gap-6 lg:grid-cols-2">

@@ -9,6 +9,7 @@ import type {
   ReactRoleAssignment,
   SelectOption,
 } from '@/lib/sdk';
+import { selectTriggerId } from './trigger-ids';
 
 interface TriggerSelectEditorProps {
   index: number;
@@ -59,7 +60,7 @@ function TriggerSelectEditorImpl({
             // resolve "user picked option X" back to a role assignment.
             onUpdateAssignment({
               ...assignment,
-              trigger_id: `${menu.custom_id}-${newValue}`,
+              trigger_id: selectTriggerId(menu.custom_id, newValue),
             });
           }}
           placeholder="option_value"
